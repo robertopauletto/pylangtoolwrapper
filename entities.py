@@ -1,6 +1,6 @@
 # entities.py
 
-from pylangtoolwrapper import PyLangToolWrapperException
+import pylangtoolwrapper as pylt
 
 __doc__ = """entities.py"""
 __version__ = "0.1"
@@ -21,12 +21,14 @@ class Error(Entity):
         Entity.__init__(self,  data)
         if 'context' in self._data:
             self._context = Context(self._data['context'])
+        if 'rule' in data:
+            self._rule = Rule(self._data['rule'])
 
     @staticmethod
     def parse(data: dict):
         if not 'matches' in data:
             return None
-        return [Error(matches) for matches in data['matches']]
+        return [Error(match) for match in data['matches']]
 
     @staticmethod
     def spell_errors(errors: list):
@@ -35,8 +37,7 @@ class Error(Entity):
         :param errors:
         :return: list of `Error`
         """
-        return [error for error in errors if
-                error.rule.type == 'misspelling']
+        return [error for error in errors if error.rule.type == 'misspelling']
 
     @property
     def message(self):
@@ -54,7 +55,15 @@ class Error(Entity):
 
     @property
     def context(self):
-        return self._context
+        if isinstance(self._context, Context):
+            return self._context
+        return None
+
+    @property
+    def rule(self):
+        if isinstance(self._rule, Rule):
+            return self._rule
+        return None
 
     @property
     def suggestions(self):
@@ -68,14 +77,14 @@ class Error(Entity):
 
 
 class Context(Entity):
-    """Where an error occurs, proximity, error text corrdinates"""
+    """Where an error occurs, proximity, error text coordinates ..."""
 
     def __init__(self, data):
         Entity.__init__(self,  data)
 
     @property
     def proximity(self):
-        """The text surrounging the errore"""
+        """The text surrounding the errore"""
         return self._data['text']
 
     @property
@@ -91,13 +100,7 @@ class Context(Entity):
     @property
     def end(self):
         """End of the error text"""
-        return self.start + (self.start + self._data['length'])
-
-    @property
-    def rule(self):
-        if not 'rule' in self._data:
-            return None
-        return Rule(self._data['rule'])
+        return self.start + self._data['length']
 
 
 class Rule(Entity):

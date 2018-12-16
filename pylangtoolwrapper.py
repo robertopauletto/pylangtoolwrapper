@@ -58,8 +58,8 @@ def get_languages():
     resp = _get_req(url)
     languages = list()
     for record in resp.json():
-        languages.append(Language(
-            record['name'], record['code'], record['longCode']
+        languages.append(
+            Language(record['name'], record['code'], record['longCode']
         ))
     return languages
 
@@ -68,7 +68,7 @@ def check(text, lang_code):
     """
     Send `text` for the spell check with `language`
     :param text: the text to check
-    :param lang_codee: language code, you can retrieve the code by calling first
+    :param lang_code: language code, you can retrieve the code by calling first
                        `get_language()` - **No check first will be performed**
     :return: list of `Error` objects
     """
