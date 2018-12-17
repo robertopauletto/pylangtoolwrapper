@@ -18,6 +18,7 @@ class Error(Entity):
 
     def __init__(self, data):
         self._context = None
+        self._rule = None
         Entity.__init__(self,  data)
         if 'context' in self._data:
             self._context = Context(self._data['context'])
@@ -76,6 +77,7 @@ class Error(Entity):
         end = self._data['offset'] + self._data['length']
         return start, end, self._data['length']
 
+
 class Context(Entity):
     """Where an error occurs, proximity, error text coordinates ..."""
 
@@ -84,7 +86,7 @@ class Context(Entity):
 
     @property
     def proximity(self):
-        """The text surrounding the errore"""
+        """The text surrounding the error"""
         return self._data['text']
 
     @property
