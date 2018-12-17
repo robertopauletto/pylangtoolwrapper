@@ -17,6 +17,7 @@ class Entity:
 class Error(Entity):
 
     def __init__(self, data):
+        self.is_whitelisted = False
         self._context = None
         self._rule = None
         Entity.__init__(self,  data)
@@ -26,10 +27,35 @@ class Error(Entity):
             self._rule = Rule(self._data['rule'])
 
     @staticmethod
-    def parse(data: dict):
-        if not 'matches' in data:
+    def parse(data: dict, whitelist: list):
+        """
+        Parse response from the spell check engine and istantiate a collection
+        of `Error` objects
+        :param data:
+        :param whitelist: words to treat as whitelisted if in errors
+        :return: list
+        """
+        if 'matches' not in data:
             return None
-        return [Error(match) for match in data['matches']]
+        errors = [Error(match) for match in data['matches']]
+        if whitelist:
+            errors = Error.update_whitelisted(errors, whitelist)
+        return errors
+
+    @staticmethod
+    def update_whitelisted(errors: list, whitelist: list):
+        """
+        Scan the text error in `errors` and set `is_whitelisted = True` if
+        text matches a word in `whitelist` (**case insensitive**=
+        :param errors:
+        :param whitelist:
+        :return: list
+        """
+        for error in errors:
+            if error.text_error.lower() not in whitelist:
+                continue
+            error.is_whitelisted = True
+        return errors
 
     @staticmethod
     def spell_errors(errors: list):
