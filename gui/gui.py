@@ -207,7 +207,6 @@ class GUI:
         self._empty_text(self._text)
         self._text.insert(1.0, self.root.clipboard_get())
 
-
     def _parse(self):
         if self._text.get(1.0, tk.END) == '\n':
             return
@@ -230,7 +229,7 @@ class GUI:
             fn = askopenfilename(parent=self.root)
             if not fn:
                 return
-            with open(fn) as fh:
+            with codecs.open(fn, encoding='utf-8') as fh:
                 self._text.insert(1.0, fh.read())
 
     def _hl(self, error):
@@ -259,7 +258,7 @@ class GUI:
         if DEV_MODE:
             print(w)
 
-    def _set_tag(self, error):
+    def _get_tag(self, error):
         if error.rule.type == "misspelling":
             return "error"
         else:
