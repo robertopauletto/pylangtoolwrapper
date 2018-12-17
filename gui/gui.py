@@ -1,5 +1,8 @@
 # gui.py
 
+from configparser import ConfigParser
+import codecs
+import os
 import tkinter as tk
 from tkinter.filedialog import askdirectory, askopenfilename
 from tkinter.messagebox import askyesno, askquestion
@@ -7,6 +10,15 @@ from tkinter.messagebox import showinfo, showerror, showwarning
 import tkinter.ttk as ttk
 import pylangtoolwrapper as pylt
 import entities
+
+
+DEV_MODE = True
+ini = ConfigParser()
+ini.read('gui/config.ini')
+section = 'windows' if os.name == 'nt' else 'unix'
+geometry = ini.get(section, 'geometry')
+statusbar_len = ini.get(section, 'statusbar')
+languages = pylt.get_languages()
 
 
 def set_style():
@@ -45,8 +57,10 @@ class StatusBar(tk.Frame):
 class GUI:
     """User Interface"""
     def __init__(self, root, title, geometry, resizable=(False, False)):
+        self._current_tag = {"start": -1, 'end': -1, 'name': None}
         self.errors = list()
         self._navpos = 0
+        self._language = tk.StringVar()
         self.root = root
         isinstance(self.root, tk.Tk)
         self.root.title(title)
@@ -60,7 +74,7 @@ class GUI:
         self._draw_parse()
         self._draw_errors()
         self._draw_navbuttons()
-        self._sb = StatusBar(self._mf, 'Ready ...', 96)
+        self._sb = StatusBar(self._mf, 'Ready ...', statusbar_len)
         self._sb.grid(
             row=99, column=0, padx=5, pady=5, sticky=tk.EW, columnspan=3
         )
@@ -69,49 +83,73 @@ class GUI:
 
     def _draw_parse(self):
         fm = ttk.LabelFrame(self._mf, text=' Text to parse ')
+
+        # Text container and scrollbar
         self._text = tk.Text(fm, width=80, height=20)
-        self._text.tag_configure("highlight", background="yellow")
-        self._text.grid(row=0, column=0, padx=5, pady=5, rowspan=5)
+
+        # Tag settings for error text highlighting
+        self._text.tag_configure("error", background="yellow")
+        self._text.tag_configure("warn", background="#FFA97E")
+
+        self._text.grid(row=0, column=0, padx=5, pady=5, rowspan=7)
+        scrollbar = tk.Scrollbar(fm)
+        scrollbar.grid(row=0, column=1, sticky=tk.NS, rowspan=7, padx=5)
+        scrollbar.config(command=self._text.yview)
+        self._text.configure(yscrollcommand=scrollbar.set)
+
+        # Buttons
+        tk.Label(
+            fm, text='Languages'
+        ).grid(row=0, column=2, padx=5, pady=0, ipady=0)
+        cmb_lang = ttk.Combobox(fm, textvariable=self._language, width=10)
+        cmb_lang['values'] = [lang.name for lang in languages]
+        cmb_lang.grid(row=1, column=2, padx=0, pady=5, ipady=0)
+
         tk.Button(
-            fm, text='Paste text', width=10, command=self._parse
-        ).grid(row=0, column=1, padx=5, pady=5)
+           fm, text='Paste text', width=10, command=self._paste
+        ).grid(row=2, column=2, padx=5, pady=5)
         tk.Button(
             fm, text='Load from file', width=10, command=self._load
-        ).grid(row=1, column=1, padx=5, pady=5)
+        ).grid(row=3, column=2, padx=5, pady=5)
         tk.Button(
             fm, text='Parse', width=10, command=self._parse
-        ).grid(row=2, column=1, padx=5, pady=5)
+        ).grid(row=4, column=2, padx=5, pady=5)
         tk.Button(
             fm, text='Clean', width=10,
             command=lambda: self._empty_text(self._text)
-        ).grid(row=3, column=1, padx=5, pady=5)
+        ).grid(row=5, column=2, padx=5, pady=5)
         tk.Button(
             fm, text='Copy text', width=10, command=self._parse
-        ).grid(row=4, column=1, padx=5, pady=5)
+        ).grid(row=6, column=2, padx=5, pady=5)
+
         fm.grid(row=0, column=0, padx=5, pady=5, sticky=tk.NSEW)
 
     def _draw_errors(self):
         fm = ttk.LabelFrame(self._mf, text=' Error details ')
+
+        # Error container
         self._errors = tk.Text(fm, width=80, height=8)
-        self._errors.grid(row=0, column=0, padx=5, pady=5, rowspan=4)
+        self._errors.grid(row=0, column=0, padx=5, pady=5,
+                          rowspan=4, columnspan=2)
+
         fm.grid(row=1, column=0, padx=5, pady=5, sticky=tk.NSEW)
 
     def _draw_navbuttons(self):
         fm = tk.LabelFrame(self._mf, text='')
         tk.Button(
-            fm, text='<<',
+            fm, text='<<', width=3,
             command=lambda: self._error_nav(self.errors, 'f', self._show_error)
         ).grid(row=0, column=0, padx=5, pady=5)
         tk.Button(
-            fm, text='<',
+            fm, text='<', width=3,
             command=lambda: self._error_nav(self.errors, 'p', self._show_error)
         ).grid(row=0, column=1, padx=5, pady=5)
         tk.Button(
-            fm, text='>',
+            fm, text='>', width=3,
             command=lambda: self._error_nav(self.errors, 'n', self._show_error)
         ).grid(row=0, column=2, padx=5, pady=5)
         tk.Button(
-            fm, text='>>',
+            fm, text='>>', width=3,
             command=lambda: self._error_nav(self.errors, 'l', self._show_error)
         ).grid(row=0, column=3, padx=5, pady=5)
         fm.grid(row=2, column=0, padx=5, pady=5, sticky=tk.EW)
@@ -161,33 +199,76 @@ class GUI:
         """Empty the text frame"""
         widget.delete(1.0, tk.END)
 
+    def _paste(self):
+        if not askyesno(parent=self._text,
+                        message="This will clear existing text, continue?",
+                        title="Confirmation"):
+            return
+        self._empty_text(self._text)
+        self._text.insert(1.0, self.root.clipboard_get())
+
+
     def _parse(self):
+        if self._text.get(1.0, tk.END) == '\n':
+            return
         self.errors = pylt.check(self._text.get(1.0, tk.END), 'it')
         if not self.errors:
             self._sb.message = 'All good!'
         self._error_nav(self.errors, 'f', self._show_error)
 
     def _load(self):
-        # fn = askopenfilename(parent=self.root)
-        # if  not fn:
-        #    return
+        """Load text to parse from file"""
+        if not askyesno(parent=self._text,
+                        message="This will clear existing text, continue?",
+                        title="Confirmation"):
+            return
         self._empty_text(self._text)
-        self._text.insert(1.0, open('testdata/test_it.txt').read())
+        if DEV_MODE:
+            self._text.insert(
+                1.0, codecs.open('test.txt', encoding='utf-8').read())
+        else:
+            fn = askopenfilename(parent=self.root)
+            if not fn:
+                return
+            with open(fn) as fh:
+                self._text.insert(1.0, fh.read())
 
     def _hl(self, error):
+        """
+        Highlight the current error
+        :param error: `Error`
+        :return:
+        """
         text = self._text.get(1.0, tk.END)
         word = error.text_error
         start, end, length = error.absolute_position()
         w = text[start:end]
+        if self._current_tag['name'] is not None:
+            self._text.tag_remove(
+                self._current_tag['name'],
+                f"1.0 + {self._current_tag['start']}c",
+                f"1.0 + {self._current_tag['end']}c"
+            )
+        ruletype = self._set_tag(error)
         self._text.tag_add(
-            "highlight", f'1.0 + {start}c', f'1.0 + {end}c'
+            ruletype, f'1.0 + {start}c', f'1.0 + {end}c'
         )
-        print(w)
+        self._current_tag['name'] = ruletype
+        self._current_tag['start'] = start
+        self._current_tag['end'] = end
+        if DEV_MODE:
+            print(w)
+
+    def _set_tag(self, error):
+        if error.rule.type == "misspelling":
+            return "error"
+        else:
+            return "warn"
 
 
 if __name__ == '__main__':
     root = tk.Tk()
     set_style()
-    gui = GUI(root, 'Spell Checker', "800x740")
+    gui = GUI(root, 'Spell Checker', geometry)
     root.update_idletasks()
     root.mainloop()
