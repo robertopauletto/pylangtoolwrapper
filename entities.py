@@ -71,10 +71,10 @@ class Error(Entity):
             return [item['value'] for item in self._data['replacements']]
         return list()
 
-    def absolute_position(self, text):
-        start = text.index(self._context.proximity)
-        return start + (self._context.start)
-
+    def absolute_position(self):
+        start = self._data['offset']
+        end = self._data['offset'] + self._data['length']
+        return start, end, self._data['length']
 
 class Context(Entity):
     """Where an error occurs, proximity, error text coordinates ..."""
