@@ -64,18 +64,21 @@ def get_languages():
     return languages
 
 
-def check(text, lang_code):
+def check(text: str, lang_code: str, whitelist=None):
     """
     Send `text` for the spell check with `language`
     :param text: the text to check
     :param lang_code: language code, you can retrieve the code by calling first
                        `get_language()` - **No check first will be performed**
+    :param whitelist: list of words to ignore. The errors remains but they will
+                      be tagged with `is_whitelisted = True`, than the consumer
+                      can manage the object as he pleases.
     :return: list of `Error` objects
     """
     url = f"{ROUTES['base']}{ROUTES['check']}"
     payload = {'text': text, 'language': lang_code}
     resp = _get_req(url, verb='POST', payload=payload)
-    errors = Error.parse(resp.json())
+    errors = Error.parse(resp.json(), whitelist or list())
     return errors
 
 

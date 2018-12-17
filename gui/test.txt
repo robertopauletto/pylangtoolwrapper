@@ -1,0 +1,12 @@
+3.2   Un po' di lessio GUI
+La programmazione GUI ha uno speciale lessico attinente ai compiti fondamentali sopra descritti:
+
+Si specifica l'aspetto dell'Interfaccia-utente mediante la descrizione dei widget che si vogliono presentare, nonché le loro relazioni spaziali (ossia, se un widget sta sopra o sotto, o a destra o a sinistra, di altri widget).
+Le parti di codice che concretamente realizzano il lavoro dell'interfaccia si chiamano gestori di eventi («event handlers»). Gli eventi sono gli ingressi, come le pressioni dei tasti dei dispositivi di puntamento (o «topi», o «mouse») o della tastiera. Queste parti si chiamano «gestori» in quanto «gestiscono» (nel senso che «reagiscono a») tali eventi.
+L'accoppiamento fra un gestore di eventi e un widget si dice collegamento (o «binding»). Grossomodo, il processo di collegamento implica l'associazione di tre diverse entità:
+un tipo di evento (ad esempio la pressione del tasto sinisstro del dispositivo di puntamento, oppure la pressione del tasto [Invio] sulla tastiera),
+un widget (ad esempio un pulsante), e
+del codice di gestione degli eventi.
+Per esempio, si potuto collegare (a) una singola pressione del tasto sinistro del dispositivo di puntamento al (b) pulsante «CHIUDI» sullo schermo e al (c) codice denominato «chiudiProgramma», il quale chiude la finestra e termina il programma.
+
+Il codice che attende♠ l'ingresso si chiama ciclo degli eventi («event loop»).

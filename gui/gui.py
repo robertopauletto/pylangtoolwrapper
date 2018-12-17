@@ -1,5 +1,6 @@
 # gui.py
 
+
 from configparser import ConfigParser
 import codecs
 import os
@@ -8,17 +9,28 @@ from tkinter.filedialog import askdirectory, askopenfilename
 from tkinter.messagebox import askyesno, askquestion
 from tkinter.messagebox import showinfo, showerror, showwarning
 import tkinter.ttk as ttk
+import sys
+sys.path.append('..')
 import pylangtoolwrapper as pylt
 import entities
 
 
 DEV_MODE = True
 ini = ConfigParser()
-ini.read('gui/config.ini')
+gui_folder = os.path.dirname(os.path.abspath(__file__))
+ini.read(os.path.join(gui_folder, 'config.ini'))
 section = 'windows' if os.name == 'nt' else 'unix'
 geometry = ini.get(section, 'geometry')
 statusbar_len = ini.get(section, 'statusbar')
 languages = pylt.get_languages()
+
+
+def get_whitelist():
+    fn = ini.get('paths', 'whitelist')
+    if "\\" not in fn or "/" not in fn:  # file in the same directory of gui
+        fn = os.path.join(gui_folder, fn)
+    with open(fn) as fh:
+        return [word.lower() for word in fh.read().split('\n') if word]
 
 
 def set_style():
@@ -90,6 +102,7 @@ class GUI:
         # Tag settings for error text highlighting
         self._text.tag_configure("error", background="yellow")
         self._text.tag_configure("warn", background="#FFA97E")
+        self._text.tag_configure("whitelisted", background="#1BFCDA")
 
         self._text.grid(row=0, column=0, padx=5, pady=5, rowspan=7)
         scrollbar = tk.Scrollbar(fm)
@@ -97,12 +110,13 @@ class GUI:
         scrollbar.config(command=self._text.yview)
         self._text.configure(yscrollcommand=scrollbar.set)
 
-        # Buttons
+        # Commands
         tk.Label(
             fm, text='Languages'
         ).grid(row=0, column=2, padx=5, pady=0, ipady=0)
         cmb_lang = ttk.Combobox(fm, textvariable=self._language, width=10)
         cmb_lang['values'] = [lang.name for lang in languages]
+
         cmb_lang.grid(row=1, column=2, padx=0, pady=5, ipady=0)
 
         tk.Button(
@@ -208,9 +222,17 @@ class GUI:
         self._text.insert(1.0, self.root.clipboard_get())
 
     def _parse(self):
+        if not self._language.get():
+            showwarning("Language seletion",
+                        "You need to select a language first")
+            return
+        lang = [lng.code for lng in languages
+                if lng.name == self._language.get()][0]
         if self._text.get(1.0, tk.END) == '\n':
             return
-        self.errors = pylt.check(self._text.get(1.0, tk.END), 'it')
+        self.errors = pylt.check(
+            self._text.get(1.0, tk.END), lang, get_whitelist()
+        )
         if not self.errors:
             self._sb.message = 'All good!'
         self._error_nav(self.errors, 'f', self._show_error)
@@ -224,7 +246,11 @@ class GUI:
         self._empty_text(self._text)
         if DEV_MODE:
             self._text.insert(
-                1.0, codecs.open('test.txt', encoding='utf-8').read())
+                1.0,
+                codecs.open(
+                    os.path.join(gui_folder, 'test.txt'),
+                    encoding='utf-8'
+                ).read())
         else:
             fn = askopenfilename(parent=self.root)
             if not fn:
@@ -248,7 +274,7 @@ class GUI:
                 f"1.0 + {self._current_tag['start']}c",
                 f"1.0 + {self._current_tag['end']}c"
             )
-        ruletype = self._set_tag(error)
+        ruletype = self._get_tag(error)
         self._text.tag_add(
             ruletype, f'1.0 + {start}c', f'1.0 + {end}c'
         )
@@ -259,6 +285,8 @@ class GUI:
             print(w)
 
     def _get_tag(self, error):
+        if error.is_whitelisted:
+            return "whitelisted"
         if error.rule.type == "misspelling":
             return "error"
         else:
