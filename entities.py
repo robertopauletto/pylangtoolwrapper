@@ -32,7 +32,8 @@ class Error(Entity):
         Parse response from the spell check engine and istantiate a collection
         of `Error` objects
         :param data:
-        :param whitelist: words to treat as whitelisted if in errors
+        :param whitelist: words to ignore if in errors `is_whitelisted` will
+                          be set to `True`
         :return: list
         """
         if 'matches' not in data:
@@ -46,7 +47,9 @@ class Error(Entity):
     def update_whitelisted(errors: list, whitelist: list):
         """
         Scan the text error in `errors` and set `is_whitelisted = True` if
-        text matches a word in `whitelist` (**case insensitive**=
+        text matches a word in `whitelist` (**case insensitive**=)
+        To use if `whitelist` has been updated
+
         :param errors:
         :param whitelist:
         :return: list
@@ -65,6 +68,10 @@ class Error(Entity):
         :return: list of `Error`
         """
         return [error for error in errors if error.rule.type == 'misspelling']
+
+    @staticmethod
+    def whitelist_filtered(errors: list):
+        return [error for error in errors if not error.is_whitelisted]
 
     @property
     def message(self):
