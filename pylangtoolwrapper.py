@@ -1,8 +1,10 @@
 # pylangtoolwrapper.py
 
 from collections import namedtuple
-import requests
 from entities import Error
+from typing import Union, Dict, Tuple, List
+
+import requests
 
 __doc__ = """API Wrapper for the LanguageTool API REST
 https://languagetool.org/http-api/languagetool-swagger.json
@@ -28,13 +30,15 @@ class PyLangToolWrapperException(Exception):
     pass
 
 
-def _get_req(url, verb='GET', payload=None, ua=None):
+def _get_req(url: str, verb: str = 'GET',
+             payload: Union[dict, None] = None,
+             ua: Union[str, None] = None) -> requests.Response:
     """
     Manage request
-    :param url: the API REST endpoing
+    :param url: the API REST endpoint
     :param verb:
-    :param payload: paramenters
-    :param ua: user agent
+    :param payload: paramenters for request
+    :param ua: user agent string
     :return: response in json format
     """
     headers = {'user-agent': ua or USER_AGENT}
@@ -49,7 +53,7 @@ def _get_req(url, verb='GET', payload=None, ua=None):
     return r
 
 
-def get_languages():
+def get_languages() -> List[Language]:
     """
     Get available languages
     :return: list
@@ -64,9 +68,9 @@ def get_languages():
     return languages
 
 
-def check(text: str, lang_code: str, whitelist=None):
+def check(text: str, lang_code: str, whitelist=None) -> List[Error]:
     """
-    Send `text` for the spell check with `language`
+    Main function: send `text` for the spell check with `language`
     :param text: the text to check
     :param lang_code: language code, you can retrieve the code by calling first
                        `get_language()` - **No check first will be performed**

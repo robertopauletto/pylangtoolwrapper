@@ -4,15 +4,18 @@
 from configparser import ConfigParser
 import codecs
 import os
+import sys
+sys.path.append('..')
 import tkinter as tk
 from tkinter.filedialog import askdirectory, askopenfilename
 from tkinter.messagebox import askyesno, askquestion
 from tkinter.messagebox import showinfo, showerror, showwarning
 import tkinter.ttk as ttk
-import sys
-sys.path.append('..')
+from typing import Tuple
+
 import pylangtoolwrapper as pylt
 import entities
+
 
 __version__ = '0.1'
 DEV_MODE = True
@@ -24,7 +27,7 @@ geometry = ini.get(section, 'geometry')
 statusbar_len = ini.get(section, 'statusbar')
 
 
-def get_languages():
+def get_languages() -> list:
     """
     Retrieve available languages from LangToolWrapper
     If operation fails, append the default language to the return list
@@ -40,9 +43,9 @@ def get_languages():
         return languages
 
 
-def get_whitelist():
+def get_whitelist() -> list:
     """
-    Loads a list of words. If an error matches a word in this list it will be
+    Load a list of words. If an error matches a word in this list it will be
     marked as whitelisted, which can then be ignored if the user activate the
     corresponding option
     :return:
@@ -54,9 +57,9 @@ def get_whitelist():
         return [word.lower() for word in fh.read().split('\n') if word]
 
 
-def save_whitelist(words, outfile, overwrite=True):
+def save_whitelist(words: list, outfile: str, overwrite: bool = True):
     """
-    Saves the `words` to `outfile`
+    Saves `words` to `outfile`
     :param words: list of words whitelisted
     :param outfile: target storage file
     :param overwrite: if `outfile`, if exists, will be overwritten
@@ -70,6 +73,7 @@ def save_whitelist(words, outfile, overwrite=True):
 
 
 def set_style():
+    """Set a tkinter gui style"""
     style = ttk.Style()
     style.configure('TEntry', disabledforeground='#FFF9D8')
 
@@ -104,7 +108,8 @@ class StatusBar(tk.Frame):
 
 class GUI:
     """User Interface"""
-    def __init__(self, root, title, geometry, resizable=(False, False)):
+    def __init__(self, root: tk.Tk, title: str,
+                 geometry: str, resizable: Tuple[bool, bool] = (False, False)):
         self._current_tag = {"start": -1, 'end': -1, 'name': None}
         self.errors = list()
         self._errors_original = list()
@@ -116,6 +121,9 @@ class GUI:
         )
         self._wlauto = tk.IntVar(
             value=ini.getint('userpref', 'autosave_whitelisted')
+        )
+        self._missplells_only = tk.IntVar(
+            value=ini.getint('userpref', 'misspells_only')
         )
         self.root = root
         isinstance(self.root, tk.Tk)
@@ -250,13 +258,16 @@ class GUI:
         ).grid(row=0, column=4, padx=5, pady=5)
         tk.Checkbutton(
             fm, text='Ignore whitelisted', variable=self._ignore_whitelisted,
-            command=lambda: self._error_nav(self.errors, 'l', self._show_error)
         ).grid(row=0, column=5, padx=5, pady=5, ipadx=30)
+        tk.Checkbutton(
+            fm, text='Missplelling only', variable=self._missplells_only
+        ).grid(row=0, column=6, padx=5, pady=5, ipadx=30)
+
         fm.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
 
     def _error_nav(self, items: list, action: str, callback):
         """
-        Buttons for error list seeking
+        Buttons for error list navigation
         :param items:
         :param action: **f**irst/**l**ast/**n**ext/**p**revious
         :return: the list item requested
@@ -334,6 +345,8 @@ class GUI:
             self._sb.message = 'All good!'
         if self._ignore_whitelisted.get() == 1:
             self.errors = pylt.Error.whitelist_filtered(self.errors)
+        if self._missplells_only.get() == 1:
+            self.errors = pylt.Error.spell_errors(self.errors)
         self._error_nav(self.errors, 'f', self._show_error)
 
     def _load(self):
@@ -427,8 +440,6 @@ class GUI:
             self._text.get(1.0, tk.END), lang, whitelist
         )
         self._errors_original = self.errors[:]
-
-
 
 
 if __name__ == '__main__':
