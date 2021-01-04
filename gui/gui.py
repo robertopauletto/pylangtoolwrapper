@@ -7,18 +7,19 @@ import os
 import sys
 sys.path.append('..')
 import tkinter as tk
-from tkinter.filedialog import askdirectory, askopenfilename
+from tkinter.filedialog import askdirectory, askopenfilename, asksaveasfilename
 from tkinter.messagebox import askyesno, askquestion
 from tkinter.messagebox import showinfo, showerror, showwarning
 import tkinter.ttk as ttk
-from typing import Tuple
+from typing import Tuple, List
 
 import pylangtoolwrapper as pylt
 import entities
+from tk_tooltips import show_tooltip
 
 
-__version__ = '0.1'
-DEV_MODE = True
+__version__ = '0.2'
+DEV_MODE = False
 ini = ConfigParser()
 gui_folder = os.path.dirname(os.path.abspath(__file__))
 ini.read(os.path.join(gui_folder, 'config.ini'))
@@ -106,11 +107,12 @@ class StatusBar(tk.Frame):
         self._msg.set(msg)
 
 
-class GUI:
+class Gui:
     """User Interface"""
     def __init__(self, root: tk.Tk, title: str,
                  geometry: str, resizable: Tuple[bool, bool] = (False, False)):
         self._current_tag = {"start": -1, 'end': -1, 'name': None}
+        self._last_opened_file = None
         self.errors = list()
         self._errors_original = list()
         self._navpos = 0
@@ -160,7 +162,7 @@ class GUI:
 
     def _draw_parse(self):
         """Draws the frame where goes the text to check and the command"""
-        fm = ttk.LabelFrame(self._mf, text=' Text to parse ')
+        fm = ttk.LabelFrame(self._mf, text=' Spellcheck Text ')
         # Text container and scrollbar
         self._text = tk.Text(fm, width=80, height=20)
 
@@ -191,39 +193,83 @@ class GUI:
         cmb_lang.current(default_lang)
         cmb_lang.grid(row=1, column=0, padx=0, pady=5, ipady=0)
 
-        tk.Button(
+        bt1 = tk.Button(
            fmcmd, text='Paste text', width=10, command=self._paste
-        ).grid(row=2, column=0, padx=5, pady=5)
-        tk.Button(
+        )
+        bt1.grid(row=2, column=0, padx=5, pady=5)
+
+        bt2 = tk.Button(
             fmcmd, text='Load from file', width=10, command=self._load
-        ).grid(row=3, column=0, padx=5, pady=5)
-        tk.Button(
+        )
+        bt2.grid(row=3, column=0, padx=5, pady=5)
+
+        bt3 = tk.Button(
             fmcmd, text='Parse', width=10, command=self._parse
-        ).grid(row=4, column=0, padx=5, pady=5)
-        tk.Button(
+        )
+        bt3.grid(row=4, column=0, padx=5, pady=5)
+
+        bt4 = tk.Button(
             fmcmd, text='Clear', width=10,
             command=lambda: self._empty_text(self._text)
-        ).grid(row=5, column=0, padx=5, pady=5)
-        tk.Button(
+        )
+        bt4.grid(row=5, column=0, padx=5, pady=5)
+
+        bt5 = tk.Button(
             fmcmd, text='Copy text', width=10, command=self._parse
-        ).grid(row=6, column=0, padx=5, pady=5)
+        )
+        bt5.grid(row=6, column=0, padx=5, pady=5)
+
+        bt6 = tk.Button(
+            fmcmd, text='Save to file', width=10, command=self._save
+        )
+        bt6.grid(row=7, column=0, padx=5, pady=5)
         fmcmd.grid(row=0, column=1, padx=5, pady=5, sticky=tk.NSEW)
+
+        self._setup_tooltips(
+            [
+                (bt1, "Paste text from the current clipboard"),
+                (bt2, "Load the contents of a file"),
+                (bt3, "Perform check spelling with text area contents"),
+                (bt4, "Clear text area"),
+                (bt5, "Copy text area content to clipboard"),
+                (bt6, 'Save text area content to file')
+            ]
+        )
+
+    def _setup_tooltips(self, items: List[tuple]):
+        for widget, message in items:
+            show_tooltip(widget, message)
 
     def _draw_whitelist(self):
         fm = ttk.LabelFrame(self._mf, text=' Whitelist ')
-        tk.Button(
+        bt1 = tk.Button(
             fm, text='Add', width=10, command=self._addword
-        ).grid(row=0, column=0, padx=5, pady=5)
-        tk.Checkbutton(
+        )
+        bt1.grid(row=0, column=0, padx=5, pady=5)
+
+        ck1 = tk.Checkbutton(
             fm, text='Autosave', variable=self._wlauto
-        ).grid(row=1, column=0, padx=5, pady=5)
-        tk.Button(
+        )
+        ck1.grid(row=1, column=0, padx=5, pady=5)
+
+        bt2 = tk.Button(
             fm, text='Save', width=10, command=self._parse
-        ).grid(row=2, column=0, padx=5, pady=5)
-        tk.Button(
-            fm, text='Load', width=10, command=self._parse
-        ).grid(row=3, column=0, padx=5, pady=5)
+        )
+        bt2.grid(row=2, column=0, padx=5, pady=5)
+
+        bt3 = tk.Button(
+            fm, text='Edit', width=10,
+            command=lambda: showinfo("Unavailable feature", "Not implemented")
+        )
+        bt3.grid(row=3, column=0, padx=5, pady=5)
         fm.grid(row=1, column=1, padx=5, pady=5, sticky=tk.NSEW)
+
+        self._setup_tooltips([
+            (bt1, 'Add selected word to whitelist'),
+            (ck1, 'If selected save the words added to the whitelist on exit'),
+            (bt2, 'Save the whitelist'),
+            (bt3, 'Edit the whitelist')
+        ])
 
     def _draw_errors(self):
         fm = ttk.LabelFrame(self._mf, text=' Error details ')
@@ -237,33 +283,55 @@ class GUI:
 
     def _draw_navbuttons(self):
         fm = tk.LabelFrame(self._mf, text='')
-        tk.Button(
-            fm, text='<', width=3,
-            command=lambda: self._error_nav(self.errors, 'p', self._show_error)
-        ).grid(row=0, column=0, padx=5, pady=5)
-        tk.Button(
+        bt1 = tk.Button(
             fm, text='<<', width=3,
             command=lambda: self._error_nav(self.errors, 'f', self._show_error)
-        ).grid(row=0, column=1, padx=5, pady=5)
-        tk.Entry(
+        )
+        bt1.grid(row=0, column=0, padx=5, pady=5)
+
+        bt2 = tk.Button(
+            fm, text='<', width=3,
+            command=lambda: self._error_nav(self.errors, 'p', self._show_error)
+        )
+        bt2.grid(row=0, column=1, padx=5, pady=5)
+
+        txt1 = tk.Entry(
             fm, textvariable=self._goto, width=4
-        ).grid(row=0, column=2, padx=5, pady=5)
-        tk.Button(
+        )
+        txt1.grid(row=0, column=2, padx=5, pady=5)
+
+        bt3 = tk.Button(
             fm, text='>', width=3,
             command=lambda: self._error_nav(self.errors, 'n', self._show_error)
-        ).grid(row=0, column=3, padx=5, pady=5)
-        tk.Button(
+        )
+        bt3.grid(row=0, column=3, padx=5, pady=5)
+
+        bt4 = tk.Button(
             fm, text='>>', width=3,
             command=lambda: self._error_nav(self.errors, 'l', self._show_error)
-        ).grid(row=0, column=4, padx=5, pady=5)
-        tk.Checkbutton(
+        )
+        bt4.grid(row=0, column=4, padx=5, pady=5)
+
+        ck1 = tk.Checkbutton(
             fm, text='Ignore whitelisted', variable=self._ignore_whitelisted,
-        ).grid(row=0, column=5, padx=5, pady=5, ipadx=30)
-        tk.Checkbutton(
+        )
+        ck1.grid(row=0, column=5, padx=5, pady=5, ipadx=30)
+
+        ck2 = tk.Checkbutton(
             fm, text='Missplelling only', variable=self._missplells_only
-        ).grid(row=0, column=6, padx=5, pady=5, ipadx=30)
+        )
+        ck2.grid(row=0, column=6, padx=5, pady=5, ipadx=30)
 
         fm.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
+        self._setup_tooltips([
+            (bt1, 'Go to first error'),
+            (bt2, 'Go to previous error'),
+            (txt1, 'Go to nth error'),
+            (bt3, 'Go to next error'),
+            (bt4, 'Go to last error'),
+            (ck1, 'If checked ignore whitelisted words on spellchecking'),
+            (ck2, 'If checked does not show grammar errors')
+        ])
 
     def _error_nav(self, items: list, action: str, callback):
         """
@@ -315,7 +383,10 @@ class GUI:
         self._errors.insert(tk.END, '\n'.join(prompt))
         self._sb.message = f'Error {self._navpos+1} of {len(self.errors)}'\
                            f' ({error.rule.category_name}) '
-        self._hl(error)
+        start = self._hl(error)
+        # let's move the cursor to the error position
+        self._text.mark_set("insert", f'1.0 + {start + 1}c')
+        self._text.see("insert")
 
     def _empty_text(self, widget):
         """Empties the text frame"""
@@ -349,11 +420,55 @@ class GUI:
             self.errors = pylt.Error.spell_errors(self.errors)
         self._error_nav(self.errors, 'f', self._show_error)
 
+    def _ask_to_empty_text_buffer(self) -> bool:
+        """
+        If the text buffer is not empty asks for confirmation to clear buffer
+        """
+        buffer = self._text.get('1.0', tk.END).strip()
+        if buffer:
+            return askyesno(parent=self._text,
+                            message="This will clear existing text, continue?",
+                            title="Empty text widget")
+        return True
+
+    def _ask_to_overwrite(self, save_file: str) -> True:
+        if not os.path.exists(save_file):
+            return True
+        prompt = f'{save_file}\nalready exists, are you sure to overwrite?'
+        return askyesno('Overwrite file', prompt)
+
+    def _save(self):
+        """Save parsed text to file"""
+        # get the folder of the previous opened file
+        initdir = (os.path.dirname(self._last_opened_file)
+                   if self._last_opened_file else '.')
+        save_file = askopenfilename(
+            initialdir=initdir,
+            title='Select the file name for the parsed text'
+        )
+        if not save_file:
+            return
+        try:
+            if not self._ask_to_overwrite(save_file):
+                return
+            with open(save_file, mode='w') as fh:
+                fh.write(self._text.get('1.0', tk.END))
+            showinfo('Save to file', f'Buffer saved to\n{save_file}')
+        except IOError as ioerrex:
+            prompt = f"An error occurred while saving to {save_file}\n{ioerrex}"
+            showerror("Save file", prompt)
+        finally:
+            return
+
+    def _ask_to_parse(self):
+        prompt = ("Do you want to parse the loaded file?\n"
+                  "Otherwise you will have to do it manually with the"
+                  "'Parse' button")
+        return askyesno("Parse opened file", prompt)
+
     def _load(self):
         """Load text to parse from file"""
-        if not askyesno(parent=self._text,
-                        message="This will clear existing text, continue?",
-                        title="Confirmation"):
+        if not self._ask_to_empty_text_buffer():
             return
         self._empty_text(self._text)
         if DEV_MODE:
@@ -367,10 +482,16 @@ class GUI:
             fn = askopenfilename(parent=self.root)
             if not fn:
                 return
+            # Save last opened file, will be useful if the user want to
+            # save back the parsed text, by default will be offered the folder
+            # of the opened file
+            # self._last_opened_file = fn
             with codecs.open(fn, encoding='utf-8') as fh:
                 self._text.insert(1.0, fh.read())
+            if self._ask_to_parse():
+                self._parse()
 
-    def _hl(self, error):
+    def _hl(self, error) -> int:
         """
         Highlight the current error
         :param error: `Error`
@@ -395,6 +516,7 @@ class GUI:
         self._current_tag['end'] = end
         if DEV_MODE:
             print(w)
+        return start
 
     def _get_tag(self, error):
         """
@@ -446,6 +568,6 @@ if __name__ == '__main__':
     languages = get_languages()
     root = tk.Tk()
     set_style()
-    gui = GUI(root, f'Spell Checker - version {__version__}', geometry)
+    gui = Gui(root, f'Spell Checker - version {__version__}', geometry)
     root.update_idletasks()
     root.mainloop()

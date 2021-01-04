@@ -15,3 +15,7 @@ factorial
 comun
 built-in
 callback
+pull
+intelleggibili
+bash
+repository
