@@ -9,9 +9,8 @@ import requests
 __doc__ = """API Wrapper for the LanguageTool API REST
 https://languagetool.org/http-api/languagetool-swagger.json
 """
-__version__ = "0.1"
+__version__ = "0.2"
 __changelog__ = """
-
 """
 
 USER_AGENT = ('Mozilla/5.0 (X11; CrOS x86_64 10066.0.0) AppleWebKit/537.36 '
@@ -75,7 +74,7 @@ def check(text: str, lang_code: str, whitelist=None) -> List[Error]:
     :param lang_code: language code, you can retrieve the code by calling first
                        `get_language()` - **No check first will be performed**
     :param whitelist: list of words to ignore. The errors remains but they will
-                      be tagged with `is_whitelisted = True`, than the consumer
+                      be tagged with `is_whitelisted = True`, then the consumer
                       can manage the object as he pleases.
     :return: list of `Error` objects
     """

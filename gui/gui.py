@@ -16,7 +16,7 @@ from typing import Tuple, List
 import pylangtoolwrapper as pylt
 import entities
 from tk_tooltips import show_tooltip
-
+from tk_whitelists import WhiteListManager
 
 __version__ = '0.2'
 DEV_MODE = False
@@ -27,6 +27,9 @@ section = 'windows' if os.name == 'nt' else 'unix'
 geometry = ini.get(section, 'geometry')
 statusbar_len = ini.get(section, 'statusbar')
 
+
+# TODO: Message when last error is reached (restart from top, stop ...)
+# TODO: Edit the whitelist
 
 def get_languages() -> list:
     """
@@ -258,8 +261,7 @@ class Gui:
         bt2.grid(row=2, column=0, padx=5, pady=5)
 
         bt3 = tk.Button(
-            fm, text='Edit', width=10,
-            command=lambda: showinfo("Unavailable feature", "Not implemented")
+            fm, text='Edit', width=10,  command=self._manage_whitelist
         )
         bt3.grid(row=3, column=0, padx=5, pady=5)
         fm.grid(row=1, column=1, padx=5, pady=5, sticky=tk.NSEW)
@@ -270,6 +272,14 @@ class Gui:
             (bt2, 'Save the whitelist'),
             (bt3, 'Edit the whitelist')
         ])
+
+    def _manage_whitelist(self):
+        fn = ini.get('paths', 'whitelist')
+        if "\\" not in fn or "/" not in fn:  # file in the same directory of gui
+            fn = os.path.join(gui_folder, fn)
+        wl = WhiteListManager(
+            self.root, "Whitelist Manager",
+            ini.get(section, 'geometry_whitelist_manager'), fn)
 
     def _draw_errors(self):
         fm = ttk.LabelFrame(self._mf, text=' Error details ')
