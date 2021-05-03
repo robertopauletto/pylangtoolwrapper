@@ -1,7 +1,5 @@
-# gui.py
+# pylanggui.py
 
-
-from configparser import ConfigParser
 import codecs
 import os
 import sys
@@ -15,14 +13,12 @@ from typing import Tuple, List
 
 import pylangtoolwrapper as pylt
 import entities
+from pylanggui.__init__ import ini, get_whitelist, gui_folder
 from tk_tooltips import show_tooltip
 from tk_whitelists import WhiteListManager
 
 __version__ = '0.2'
 DEV_MODE = False
-ini = ConfigParser()
-gui_folder = os.path.dirname(os.path.abspath(__file__))
-ini.read(os.path.join(gui_folder, 'config.ini'))
 section = 'windows' if os.name == 'nt' else 'unix'
 geometry = ini.get(section, 'geometry')
 statusbar_len = ini.get(section, 'statusbar')
@@ -38,46 +34,25 @@ def get_languages() -> list:
     :return: list of `pylt.Languages`
     """
     try:
-        languages = pylt.get_languages()
-    except:
+        languages: list = pylt.get_languages()
+    except Exception as exc:
+        prompt = (f'Error trying to retrieve languages\n{exc}\n'
+                  f'Falling back to the default language\n\n'
+                  f'If it\'s a network error the spellckecking may not work '
+                  f'anyway')
+        showerror("Languages retrieval", prompt)
         languages = list()
-    else:
+    finally:
+        # Adds the default language
         lng = ini.get('language', 'default')
         languages.append(pylt.Language(lng, lng, lng))
         return languages
 
 
-def get_whitelist() -> list:
-    """
-    Load a list of words. If an error matches a word in this list it will be
-    marked as whitelisted, which can then be ignored if the user activate the
-    corresponding option
-    :return:
-    """
-    fn = ini.get('paths', 'whitelist')
-    if "\\" not in fn or "/" not in fn:  # file in the same directory of gui
-        fn = os.path.join(gui_folder, fn)
-    with open(fn) as fh:
-        return [word.lower() for word in fh.read().split('\n') if word]
-
-
-def save_whitelist(words: list, outfile: str, overwrite: bool = True):
-    """
-    Saves `words` to `outfile`
-    :param words: list of words whitelisted
-    :param outfile: target storage file
-    :param overwrite: if `outfile`, if exists, will be overwritten
-    :return:
-    """
-    mode = "w" if overwrite else "a"
-    if "\\" not in outfile or "/" not in outfile:
-        fn = os.path.join(gui_folder, outfile)
-    with open(outfile, mode=mode) as fh:
-        fh.write('\n'.join(word.lower().strip() for word in words))
 
 
 def set_style():
-    """Set a tkinter gui style"""
+    """Set a tkinter pylanggui style"""
     style = ttk.Style()
     style.configure('TEntry', disabledforeground='#FFF9D8')
 
@@ -135,8 +110,9 @@ class Gui:
         self.root.title(title)
         self.root.geometry(geometry)
         self.root.resizable(*resizable)
+        self._languages = get_languages()
         self._draw()
-        if len(languages) <= 1:
+        if not self._languages:
             self._warn_languages()
         self._whitelist = get_whitelist()
 
@@ -144,7 +120,7 @@ class Gui:
         prompt = "Unable to retrieve available languages from source\n"
         "You may want to check the Internet connection or "
         "maybe retry later."
-        if len(languages) == 1:
+        if len(self._languages) == 1:
             prompt += '\nThe default language from configuration has been set'
         showwarning(message=prompt, title='Languages')
 
@@ -189,9 +165,9 @@ class Gui:
             fmcmd, text='Languages'
         ).grid(row=0, column=0, padx=5, pady=0, ipady=0)
         cmb_lang = ttk.Combobox(fmcmd, textvariable=self._language, width=10)
-        cmb_lang['values'] = [lang.name for lang in languages]
+        cmb_lang['values'] = [lang.name for lang in self._languages]
         lng = ini.get('language', 'default')
-        tmplng = [item.code for item in languages]
+        tmplng = [item.code for item in self._languages]
         default_lang = tmplng.index(lng) if lng else -1
         cmb_lang.current(default_lang)
         cmb_lang.grid(row=1, column=0, padx=0, pady=5, ipady=0)
@@ -275,7 +251,7 @@ class Gui:
 
     def _manage_whitelist(self):
         fn = ini.get('paths', 'whitelist')
-        if "\\" not in fn or "/" not in fn:  # file in the same directory of gui
+        if "\\" not in fn or "/" not in fn:  # file in the same directory of pylanggui
             fn = os.path.join(gui_folder, fn)
         wl = WhiteListManager(
             self.root, "Whitelist Manager",
@@ -417,7 +393,7 @@ class Gui:
             showwarning("Language selection",
                         "You need to select a language first")
             return
-        lang = [lng.code for lng in languages
+        lang = [lng.code for lng in self._languages
                 if lng.name == self._language.get()][0]
         if self._text.get(1.0, tk.END) == '\n':
             return
@@ -575,7 +551,6 @@ class Gui:
 
 
 if __name__ == '__main__':
-    languages = get_languages()
     root = tk.Tk()
     set_style()
     gui = Gui(root, f'Spell Checker - version {__version__}', geometry)
