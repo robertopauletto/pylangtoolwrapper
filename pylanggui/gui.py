@@ -22,10 +22,10 @@ DEV_MODE = False
 section = 'windows' if os.name == 'nt' else 'unix'
 geometry = ini.get(section, 'geometry')
 statusbar_len = ini.get(section, 'statusbar')
-
+MAX_CHARS_FOR_REQUEST = ini.getint('misc', 'max_chars_for_request')
 
 # TODO: Message when last error is reached (restart from top, stop ...)
-# TODO: Edit the whitelist
+
 
 def get_languages() -> list:
     """
@@ -47,8 +47,6 @@ def get_languages() -> list:
         lng = ini.get('language', 'default')
         languages.append(pylt.Language(lng, lng, lng))
         return languages
-
-
 
 
 def set_style():
@@ -544,10 +542,17 @@ class Gui:
         :param lang: language code
         :param whitelist: list of whitelisted words
         """
-        self.errors = pylt.check(
-            self._text.get(1.0, tk.END), lang, whitelist
-        )
-        self._errors_original = self.errors[:]
+        try:
+            self.errors = pylt.check(
+                self._text.get(1.0, tk.END), lang, whitelist,
+                MAX_CHARS_FOR_REQUEST
+            )
+            self._errors_original = self.errors[:]
+        except pylt.PyLangToolWrapperException as pyltex:
+            showerror("Error", str(pyltex))
+            return
+        except Exception as x:
+            showerror("Generic Error", str(x))
 
 
 if __name__ == '__main__':

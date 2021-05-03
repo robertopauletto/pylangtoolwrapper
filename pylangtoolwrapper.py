@@ -6,7 +6,7 @@ from typing import Union, Dict, Tuple, List
 
 import requests
 
-__doc__ = """API Wrapper for the LanguageTool API REST
+__doc__ = """API Wrapper for the LanguageTool API REST (free plan)
 https://languagetool.org/http-api/languagetool-swagger.json
 """
 __version__ = "0.2"
@@ -62,12 +62,23 @@ def get_languages() -> List[Language]:
     languages = list()
     for record in resp.json():
         languages.append(
-            Language(record['name'], record['code'], record['longCode']
-        ))
+            Language(record['name'], record['code'], record['longCode'])
+        )
     return languages
 
 
-def check(text: str, lang_code: str, whitelist=None) -> List[Error]:
+def _check_chars_for_req(text: str, max_chars: int) -> tuple:
+    """
+    Check `text` lenght against `max_chars`, blank spaces included because it's
+    :param text:
+    :param max_chars:
+    :return: True if chars in `text` > `max_chars` and the total chars in `text`
+    """
+    return len(text) > max_chars, len(text)
+
+
+def check(text: str, lang_code: str, whitelist=None,
+          max_chars_per_req: int = 20000) -> List[Error]:
     """
     Main function: send `text` for the spell check with `language`
     :param text: the text to check
@@ -76,8 +87,20 @@ def check(text: str, lang_code: str, whitelist=None) -> List[Error]:
     :param whitelist: list of words to ignore. The errors remains but they will
                       be tagged with `is_whitelisted = True`, then the consumer
                       can manage the object as he pleases.
+    :param max_chars_per_req: for the free plan there is a limit of
+                                    20000 (as per 2021-05-03) character for
+                                    request. If the value is > 0 a check for
+                                    the chars in `text` will be performed and a
+                                    `PyLangToolWrapperException` will be raised
+    :
     :return: list of `Error` objects
     """
+    check_chars, len_chars = _check_chars_for_req(text, max_chars_per_req)
+    if check_chars:
+        raise PyLangToolWrapperException(
+            f"Too many characters in text\nAllowed: {max_chars_per_req})\n"
+            f"Present: {len_chars}")
+
     url = f"{ROUTES['base']}{ROUTES['check']}"
     payload = {'text': text, 'language': lang_code}
     resp = _get_req(url, verb='POST', payload=payload)
