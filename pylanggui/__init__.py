@@ -1,6 +1,7 @@
 
 from configparser import ConfigParser
 import os
+from shutil import copy
 
 ini = ConfigParser()
 gui_folder = os.path.dirname(os.path.abspath(__file__))
@@ -15,10 +16,11 @@ def get_whitelist() -> list:
     :return:
     """
     fn = ini.get('paths', 'whitelist')
-    if "\\" not in fn or "/" not in fn:  # file in the same directory of pylanggui
+    if "\\" not in fn or "/" not in fn:  # file in the same directory pylanggui
         fn = os.path.join(gui_folder, fn)
     with open(fn) as fh:
         return [word.lower() for word in fh.read().split('\n') if word]
+
 
 def save_whitelist(words: list, outfile: str, overwrite: bool = True):
     """
@@ -31,5 +33,6 @@ def save_whitelist(words: list, outfile: str, overwrite: bool = True):
     mode = "w" if overwrite else "a"
     if "\\" not in outfile or "/" not in outfile:
         fn = os.path.join(gui_folder, outfile)
+    copy(outfile, "bk-" + outfile + '.bak')
     with open(outfile, mode=mode) as fh:
         fh.write('\n'.join(word.lower().strip() for word in words))

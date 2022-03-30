@@ -13,7 +13,7 @@ from typing import Tuple, List
 
 import pylangtoolwrapper as pylt
 import entities
-from pylanggui.__init__ import ini, get_whitelist, gui_folder
+from pylanggui.__init__ import ini, get_whitelist, gui_folder, save_whitelist
 from tk_tooltips import show_tooltip
 from tk_whitelists import WhiteListManager
 
@@ -171,7 +171,7 @@ class Gui:
         cmb_lang.grid(row=1, column=0, padx=0, pady=5, ipady=0)
 
         bt1 = tk.Button(
-           fmcmd, text='Paste text', width=10, command=self._paste
+           fmcmd, text='Paste text (F6)', width=10, command=self._paste
         )
         bt1.grid(row=2, column=0, padx=5, pady=5)
 
@@ -181,20 +181,20 @@ class Gui:
         bt2.grid(row=3, column=0, padx=5, pady=5)
 
         bt3 = tk.Button(
-            fmcmd, text='Parse', width=10, command=self._parse
+            fmcmd, text='Parse (F7)', width=10, command=self._parse
         )
         bt3.grid(row=4, column=0, padx=5, pady=5)
 
         bt4 = tk.Button(
-            fmcmd, text='Clear', width=10,
+            fmcmd, text='Clear (F5)', width=10,
             command=lambda: self._empty_text(self._text)
         )
         bt4.grid(row=5, column=0, padx=5, pady=5)
 
-        bt5 = tk.Button(
-            fmcmd, text='Copy text', width=10, command=self._parse
-        )
-        bt5.grid(row=6, column=0, padx=5, pady=5)
+        # bt5 = tk.Button(
+        #     fmcmd, text='Copy text', width=10, command=self._pas
+        # )
+        # bt5.grid(row=6, column=0, padx=5, pady=5)
 
         bt6 = tk.Button(
             fmcmd, text='Save to file', width=10, command=self._save
@@ -208,10 +208,19 @@ class Gui:
                 (bt2, "Load the contents of a file"),
                 (bt3, "Perform check spelling with text area contents"),
                 (bt4, "Clear text area"),
-                (bt5, "Copy text area content to clipboard"),
+                # (bt5, "Copy text area content to clipboard"),
                 (bt6, 'Save text area content to file')
             ]
         )
+
+    def clear_cb(self, event):
+        self._empty_text(self._text)
+
+    def paste_text(self, event):
+        self._paste()
+
+    def parse_text(self, event):
+        self._parse()
 
     def _setup_tooltips(self, items: List[tuple]):
         for widget, message in items:
@@ -267,34 +276,34 @@ class Gui:
 
     def _draw_navbuttons(self):
         fm = tk.LabelFrame(self._mf, text='')
-        bt1 = tk.Button(
+        btn_first = tk.Button(
             fm, text='<<', width=3,
             command=lambda: self._error_nav(self.errors, 'f', self._show_error)
         )
-        bt1.grid(row=0, column=0, padx=5, pady=5)
+        btn_first.grid(row=0, column=0, padx=5, pady=5)
 
-        bt2 = tk.Button(
+        btn_previous = tk.Button(
             fm, text='<', width=3,
             command=lambda: self._error_nav(self.errors, 'p', self._show_error)
         )
-        bt2.grid(row=0, column=1, padx=5, pady=5)
+        btn_previous.grid(row=0, column=1, padx=5, pady=5)
 
-        txt1 = tk.Entry(
+        txt_goto_error = tk.Entry(
             fm, textvariable=self._goto, width=4
         )
-        txt1.grid(row=0, column=2, padx=5, pady=5)
+        txt_goto_error.grid(row=0, column=2, padx=5, pady=5)
 
-        bt3 = tk.Button(
+        self.btn_next = tk.Button(
             fm, text='>', width=3,
             command=lambda: self._error_nav(self.errors, 'n', self._show_error)
         )
-        bt3.grid(row=0, column=3, padx=5, pady=5)
+        self.btn_next.grid(row=0, column=3, padx=5, pady=5)
 
-        bt4 = tk.Button(
+        btn_last = tk.Button(
             fm, text='>>', width=3,
             command=lambda: self._error_nav(self.errors, 'l', self._show_error)
         )
-        bt4.grid(row=0, column=4, padx=5, pady=5)
+        btn_last.grid(row=0, column=4, padx=5, pady=5)
 
         ck1 = tk.Checkbutton(
             fm, text='Ignore whitelisted', variable=self._ignore_whitelisted,
@@ -308,11 +317,11 @@ class Gui:
 
         fm.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.EW)
         self._setup_tooltips([
-            (bt1, 'Go to first error'),
-            (bt2, 'Go to previous error'),
-            (txt1, 'Go to nth error'),
-            (bt3, 'Go to next error'),
-            (bt4, 'Go to last error'),
+            (btn_first, 'Go to first error'),
+            (btn_previous, 'Go to previous error'),
+            (txt_goto_error, 'Go to nth error'),
+            (self.btn_next, 'Go to next error'),
+            (btn_last, 'Go to last error'),
             (ck1, 'If checked ignore whitelisted words on spellchecking'),
             (ck2, 'If checked does not show grammar errors')
         ])
@@ -372,16 +381,19 @@ class Gui:
         self._text.mark_set("insert", f'1.0 + {start + 1}c')
         self._text.see("insert")
 
-    def _empty_text(self, widget):
+    def _empty_text(self, widget=None):
         """Empties the text frame"""
+        if not widget:
+            widget = self._text
         widget.delete(1.0, tk.END)
 
     def _paste(self):
         """Paste clipboard text into the text to check frame"""
-        if not askyesno(parent=self._text,
-                        message="This will clear existing text, continue?",
-                        title="Confirmation"):
-            return
+        if not self._text.compare("end-1c", "==", "1.0"):
+            if not askyesno(parent=self._text,
+                            message="This will clear existing text, continue?",
+                            title="Confirmation"):
+                return
         self._empty_text(self._text)
         self._text.insert(1.0, self.root.clipboard_get())
 
@@ -403,6 +415,7 @@ class Gui:
         if self._missplells_only.get() == 1:
             self.errors = pylt.Error.spell_errors(self.errors)
         self._error_nav(self.errors, 'f', self._show_error)
+        self.btn_next.focus_set()
 
     def _ask_to_empty_text_buffer(self) -> bool:
         """
@@ -555,9 +568,16 @@ class Gui:
             showerror("Generic Error", str(x))
 
 
+def set_global_binding(root, gui: Gui):
+    root.bind_all('<F5>', gui.clear_cb)
+    root.bind_all('<F6>', gui.paste_text)
+    root.bind_all('<F7>', gui.parse_text)
+
+
 if __name__ == '__main__':
     root = tk.Tk()
     set_style()
     gui = Gui(root, f'Spell Checker - version {__version__}', geometry)
+    set_global_binding(root, gui)
     root.update_idletasks()
     root.mainloop()
