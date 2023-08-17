@@ -10,4 +10,4 @@ The JSON data returned by the api are managed by classes.
 
 ### Interfaces
 
-There is a simple Tkinter GUI implementation in the `gui` folder
+There is a simple Tkinter GUI implementation in the `pylanggui` folder
